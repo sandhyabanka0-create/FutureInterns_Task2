@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
-
-# ---------------------------------------------------------
+# =========================================================
 # PAGE SETTINGS
-# ---------------------------------------------------------
+# =========================================================
 
 st.set_page_config(
     page_title="Customer Retention & Churn Dashboard",
@@ -13,10 +12,9 @@ st.set_page_config(
     layout="wide"
 )
 
-
-# ---------------------------------------------------------
+# =========================================================
 # LOAD DATA
-# ---------------------------------------------------------
+# =========================================================
 
 df = pd.read_csv("data/telco_churn.csv")
 
@@ -26,91 +24,61 @@ df["TotalCharges"] = pd.to_numeric(
     errors="coerce"
 )
 
-
-# ---------------------------------------------------------
+# =========================================================
 # CREATE TENURE GROUPS
-# ---------------------------------------------------------
+# =========================================================
 
 df["TenureGroup"] = pd.cut(
     df["tenure"],
-    bins=[-1, 12, 24, 48, 60, float("inf")],
-    labels=[
-        "0-12 months",
-        "13-24 months",
-        "25-48 months",
-        "49-60 months",
-        "61+ months"
-    ]
+    bins=[0, 12, 24, 48, 60, float("inf")],
+    labels=["0-12", "13-24", "25-48", "49-60", "61+"],
+    include_lowest=True
 )
 
-
-# ---------------------------------------------------------
+# =========================================================
 # TITLE
-# ---------------------------------------------------------
+# =========================================================
 
 st.title("📊 Customer Retention & Churn Analysis")
 
-st.markdown(
-    """
-    **Customer Retention & Churn Dashboard**
-
-    This dashboard analyzes customer churn, contract type,
-    tenure, internet service, payment method, and support services.
-
-    **Note:** The relationships shown in this dashboard are
-    associations in the dataset and should not be interpreted
-    as proof of causation.
-    """
+st.write(
+    "This dashboard analyzes customer churn, contract type, "
+    "tenure, internet service, payment method, and support services."
 )
 
+st.info(
+    "Note: The relationships shown in this dashboard are "
+    "associations in the dataset and should not be interpreted "
+    "as proof of causation."
+)
 
-# ---------------------------------------------------------
+# =========================================================
 # SIDEBAR
-# ---------------------------------------------------------
+# =========================================================
 
 st.sidebar.header("Dashboard Information")
 
 st.sidebar.write(
-    "Use this dashboard to explore customer churn "
-    "and retention patterns."
+    "Use this dashboard to explore customer churn and retention patterns."
 )
 
-st.sidebar.markdown("---")
-
-st.sidebar.subheader("Dataset")
-
+st.sidebar.write("### Dataset")
 st.sidebar.write(f"Customers: {len(df):,}")
 st.sidebar.write(f"Columns: {len(df.columns):,}")
-
-missing_total = df["TotalCharges"].isna().sum()
-
 st.sidebar.write(
-    f"Missing TotalCharges: {missing_total}"
+    f"Missing TotalCharges: {df['TotalCharges'].isna().sum():,}"
 )
 
-
-# ---------------------------------------------------------
-# KPI CALCULATIONS
-# ---------------------------------------------------------
+# =========================================================
+# KEY PERFORMANCE INDICATORS
+# =========================================================
 
 total_customers = len(df)
-
 churned_customers = (df["Churn"] == "Yes").sum()
-
-churn_rate = (
-    churned_customers / total_customers
-) * 100
-
+churn_rate = (churned_customers / total_customers) * 100
 average_tenure = df["tenure"].mean()
 
-average_monthly_charges = df["MonthlyCharges"].mean()
-
-
-# ---------------------------------------------------------
-# KPI CARDS
-# ---------------------------------------------------------
-
-st.subheader("Key Performance Indicators")
+st.header("Key Performance Indicators")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -138,249 +106,151 @@ with col4:
         f"{average_tenure:.2f} months"
     )
 
-
-# ---------------------------------------------------------
+# =========================================================
 # HELPER FUNCTION
-# ---------------------------------------------------------
+# =========================================================
 
-def calculate_churn_rate(data, column):
-
-    result = data.groupby(column)["Churn"].apply(
-        lambda x: (x == "Yes").mean() * 100
-    )
-
-    return result
-
-
-def create_bar_chart(
-    values,
-    title,
-    xlabel,
-    ylabel="Churn Rate (%)",
-    rotation=0
-):
-
+def create_bar_chart(data, title, xlabel, ylabel="Churn Rate (%)"):
     fig, ax = plt.subplots(figsize=(8, 5))
 
     ax.bar(
-        values.index.astype(str),
-        values.values
+        data.index.astype(str),
+        data.values
     )
 
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
 
-    plt.xticks(
-        rotation=rotation,
-        ha="right"
-    )
-
-    for i, value in enumerate(values.values):
-
-        ax.text(
-            i,
-            value + 1,
-            f"{value:.2f}%",
-            ha="center"
-        )
-
+    plt.xticks(rotation=30, ha="right")
     plt.tight_layout()
 
-    return fig
+    st.pyplot(fig)
+    plt.close(fig)
 
 
-# ---------------------------------------------------------
-# CHART 1 - CHURN BY CONTRACT
-# ---------------------------------------------------------
+# =========================================================
+# 1. CHURN RATE BY CONTRACT TYPE
+# =========================================================
 
-st.subheader("1. Churn Rate by Contract Type")
+st.header("1. Churn Rate by Contract Type")
 
-contract_churn = calculate_churn_rate(
-    df,
-    "Contract"
+contract_churn = (
+    df.groupby("Contract", observed=False)["Churn"]
+    .apply(lambda x: (x == "Yes").mean() * 100)
 )
 
-fig = create_bar_chart(
+create_bar_chart(
     contract_churn,
     "Churn Rate by Contract Type",
-    "Contract"
+    "Contract Type"
 )
 
-st.pyplot(fig)
+# =========================================================
+# 2. CHURN RATE BY CUSTOMER TENURE
+# =========================================================
 
-plt.close(fig)
+st.header("2. Churn Rate by Customer Tenure")
 
-
-# ---------------------------------------------------------
-# CHART 2 - CHURN BY TENURE
-# ---------------------------------------------------------
-
-st.subheader("2. Churn Rate by Customer Tenure")
-
-tenure_churn = calculate_churn_rate(
-    df,
-    "TenureGroup"
+tenure_churn = (
+    df.groupby("TenureGroup", observed=False)["Churn"]
+    .apply(lambda x: (x == "Yes").mean() * 100)
 )
 
-fig = create_bar_chart(
+create_bar_chart(
     tenure_churn,
-    "Churn Rate by Tenure Group",
+    "Churn Rate by Customer Tenure",
     "Tenure Group"
 )
 
-st.pyplot(fig)
+# =========================================================
+# 3. CHURN RATE BY INTERNET SERVICE
+# =========================================================
 
-plt.close(fig)
+st.header("3. Churn Rate by Internet Service")
 
-
-# ---------------------------------------------------------
-# CHART 3 - INTERNET SERVICE
-# ---------------------------------------------------------
-
-st.subheader("3. Churn Rate by Internet Service")
-
-internet_churn = calculate_churn_rate(
-    df,
-    "InternetService"
+internet_churn = (
+    df.groupby("InternetService")["Churn"]
+    .apply(lambda x: (x == "Yes").mean() * 100)
 )
 
-fig = create_bar_chart(
+create_bar_chart(
     internet_churn,
     "Churn Rate by Internet Service",
     "Internet Service"
 )
 
-st.pyplot(fig)
+# =========================================================
+# 4. CHURN RATE BY PAYMENT METHOD
+# =========================================================
 
-plt.close(fig)
+st.header("4. Churn Rate by Payment Method")
 
-
-# ---------------------------------------------------------
-# CHART 4 - PAYMENT METHOD
-# ---------------------------------------------------------
-
-st.subheader("4. Churn Rate by Payment Method")
-
-payment_churn = calculate_churn_rate(
-    df,
-    "PaymentMethod"
+payment_churn = (
+    df.groupby("PaymentMethod")["Churn"]
+    .apply(lambda x: (x == "Yes").mean() * 100)
 )
 
-fig = create_bar_chart(
+create_bar_chart(
     payment_churn,
     "Churn Rate by Payment Method",
-    "Payment Method",
-    rotation=20
+    "Payment Method"
 )
 
-st.pyplot(fig)
+# =========================================================
+# 5. CHURN RATE BY TECH SUPPORT
+# =========================================================
 
-plt.close(fig)
+st.header("5. Churn Rate by Tech Support")
 
-
-# ---------------------------------------------------------
-# TWO COLUMN SECTION
-# ---------------------------------------------------------
-
-col1, col2 = st.columns(2)
-
-
-# ---------------------------------------------------------
-# CHART 5 - TECH SUPPORT
-# ---------------------------------------------------------
-
-with col1:
-
-    st.subheader("5. Churn Rate by Tech Support")
-
-    tech_support_churn = calculate_churn_rate(
-        df,
-        "TechSupport"
-    )
-
-    fig = create_bar_chart(
-        tech_support_churn,
-        "Churn Rate by Tech Support",
-        "Tech Support"
-    )
-
-    st.pyplot(fig)
-
-    plt.close(fig)
-
-
-# ---------------------------------------------------------
-# CHART 6 - ONLINE SECURITY
-# ---------------------------------------------------------
-
-with col2:
-
-    st.subheader("6. Churn Rate by Online Security")
-
-    security_churn = calculate_churn_rate(
-        df,
-        "OnlineSecurity"
-    )
-
-    fig = create_bar_chart(
-        security_churn,
-        "Churn Rate by Online Security",
-        "Online Security"
-    )
-
-    st.pyplot(fig)
-
-    plt.close(fig)
-
-
-# ---------------------------------------------------------
-# CUSTOMER LIFETIME ANALYSIS
-# ---------------------------------------------------------
-
-st.subheader("7. Average Customer Tenure by Churn Status")
-
-average_tenure_by_churn = (
-    df.groupby("Churn")["tenure"].mean()
+support_churn = (
+    df.groupby("TechSupport")["Churn"]
+    .apply(lambda x: (x == "Yes").mean() * 100)
 )
 
-fig, ax = plt.subplots(figsize=(7, 5))
-
-ax.bar(
-    average_tenure_by_churn.index,
-    average_tenure_by_churn.values
+create_bar_chart(
+    support_churn,
+    "Churn Rate by Tech Support",
+    "Tech Support"
 )
 
-ax.set_title(
-    "Average Customer Tenure by Churn Status"
+# =========================================================
+# 6. CHURN RATE BY ONLINE SECURITY
+# =========================================================
+
+st.header("6. Churn Rate by Online Security")
+
+security_churn = (
+    df.groupby("OnlineSecurity")["Churn"]
+    .apply(lambda x: (x == "Yes").mean() * 100)
 )
 
-ax.set_xlabel("Churn Status")
-ax.set_ylabel("Average Tenure (Months)")
+create_bar_chart(
+    security_churn,
+    "Churn Rate by Online Security",
+    "Online Security"
+)
 
-for i, value in enumerate(
-    average_tenure_by_churn.values
-):
+# =========================================================
+# 7. AVERAGE CUSTOMER TENURE BY CHURN STATUS
+# =========================================================
 
-    ax.text(
-        i,
-        value + 1,
-        f"{value:.2f}",
-        ha="center"
-    )
+st.header("7. Average Customer Tenure by Churn Status")
 
-plt.tight_layout()
+average_tenure_churn = df.groupby("Churn")["tenure"].mean()
 
-st.pyplot(fig)
+create_bar_chart(
+    average_tenure_churn,
+    "Average Customer Tenure by Churn Status",
+    "Churn Status",
+    "Average Tenure (Months)"
+)
 
-plt.close(fig)
+# =========================================================
+# 8. CUSTOMER LIFETIME SUMMARY
+# =========================================================
 
-
-# ---------------------------------------------------------
-# CUSTOMER LIFETIME TABLE
-# ---------------------------------------------------------
-
-st.subheader("8. Customer Lifetime Summary")
+st.header("8. Customer Lifetime Summary")
 
 lifetime_summary = df.groupby("Churn").agg(
     Customers=("customerID", "count"),
@@ -389,87 +259,102 @@ lifetime_summary = df.groupby("Churn").agg(
     AverageTotalCharges=("TotalCharges", "mean")
 )
 
-st.dataframe(
-    lifetime_summary.round(2),
-    use_container_width=True
-)
-
-
-# ---------------------------------------------------------
-# KEY INSIGHTS
-# ---------------------------------------------------------
-
-st.subheader("📌 Key Insights")
-
+# Display lifetime summary as a Markdown table
 st.markdown(
     f"""
-    ### Overall Churn
-
-    - The overall customer churn rate is **{churn_rate:.2f}%**.
-    - There are **{churned_customers:,} churned customers**
-      out of **{total_customers:,} customers**.
-
-    ### Customer Tenure
-
-    - Customers with shorter tenure show higher observed
-      churn rates.
-    - The **0-12 month** customer group has the highest
-      churn rate among the tenure groups.
-
-    ### Contract Type
-
-    - Month-to-month customers have a substantially higher
-      observed churn rate than customers on longer contracts.
-    - Longer-contract customers show lower observed churn
-      rates in this dataset.
-
-    ### Customer Lifetime
-
-    - Churned customers have a shorter average observed
-      tenure than retained customers.
-    - This suggests that the early customer lifecycle is
-      an important area to investigate for retention efforts.
-
-    ### Support Services
-
-    - Customers with Tech Support show a different observed
-      churn rate from customers without Tech Support.
-    - Customers with Online Security also show a different
-      observed churn rate from customers without the service.
-    """
+| Churn Status | Customers | Average Tenure (Months) | Average Monthly Charges | Average Total Charges |
+|---|---:|---:|---:|---:|
+| No | {lifetime_summary.loc["No", "Customers"]:,} | {lifetime_summary.loc["No", "AverageTenure"]:.2f} | {lifetime_summary.loc["No", "AverageMonthlyCharges"]:.2f} | {lifetime_summary.loc["No", "AverageTotalCharges"]:.2f} |
+| Yes | {lifetime_summary.loc["Yes", "Customers"]:,} | {lifetime_summary.loc["Yes", "AverageTenure"]:.2f} | {lifetime_summary.loc["Yes", "AverageMonthlyCharges"]:.2f} | {lifetime_summary.loc["Yes", "AverageTotalCharges"]:.2f} |
+"""
 )
 
+# =========================================================
+# KEY INSIGHTS
+# =========================================================
 
-# ---------------------------------------------------------
-# DATASET LIMITATIONS
-# ---------------------------------------------------------
+st.header("📌 Key Insights")
 
-with st.expander("ℹ️ Dataset Limitations"):
+st.subheader("Overall Churn")
 
-    st.write(
-        """
-        The dataset contains customer subscription information,
-        but it does not contain a signup date/month or a region
-        field.
+st.write(
+    f"- The overall customer churn rate is **{churn_rate:.2f}%**."
+)
 
-        Therefore, signup-month cohorts and region-based cohorts
-        cannot be directly calculated from this dataset.
+st.write(
+    f"- There are **{churned_customers:,} churned customers** "
+    f"out of **{total_customers:,} customers**."
+)
 
-        Tenure groups are used as a practical alternative for
-        analyzing customer lifetime patterns.
+st.subheader("Customer Tenure")
 
-        The dataset also contains some missing TotalCharges
-        values. These values are handled as missing during the
-        analysis rather than being manually invented.
-        """
-    )
+st.write(
+    "- Customers with shorter tenure show higher observed churn rates."
+)
 
+st.write(
+    "- The **0-12 month** customer group has the highest churn rate "
+    "among the tenure groups."
+)
 
-# ---------------------------------------------------------
+st.subheader("Contract Type")
+
+st.write(
+    "- Month-to-month customers have a substantially higher observed "
+    "churn rate than customers on longer contracts."
+)
+
+st.write(
+    "- Longer-contract customers show lower observed churn rates "
+    "in this dataset."
+)
+
+st.subheader("Customer Lifetime")
+
+st.write(
+    "- Churned customers have a shorter average observed tenure "
+    "than retained customers."
+)
+
+st.write(
+    "- This suggests that the early customer lifecycle is an "
+    "important area to investigate for retention efforts."
+)
+
+st.subheader("Support Services")
+
+st.write(
+    "- Customers with Tech Support show a different observed "
+    "churn rate from customers without Tech Support."
+)
+
+st.write(
+    "- Customers with Online Security also show a different "
+    "observed churn rate from customers without the service."
+)
+
+# =========================================================
+# LIMITATIONS
+# =========================================================
+
+st.info("Dataset Limitations")
+
+st.write(
+    "The dataset does not contain signup month/date or customer "
+    "region information. Therefore, signup-month and region-based "
+    "cohort analysis could not be performed from the available data."
+)
+
+st.write(
+    "The findings describe associations in the dataset and do "
+    "not establish causal relationships."
+)
+
+# =========================================================
 # FOOTER
-# ---------------------------------------------------------
+# =========================================================
 
-st.markdown("---")
+st.write("---")
 
 st.caption(
     "Future Interns – Data Science & Analytics Task 2 | "
